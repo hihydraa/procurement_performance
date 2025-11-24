@@ -23,7 +23,7 @@
         ดึงข้อมูลจาก Google Sheet (ชีต <code>effective</code>) และคำนวณ Win / Loss แบบอัตโนมัติ
       </p>
     </div>
-    <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex flex-wrap gap-3 items-end">
       <div>
         <label class="block text-xs text-gray-300 mb-1">วันที่เริ่มต้น</label>
         <input id="startDate" type="date"
@@ -34,8 +34,15 @@
         <input id="endDate" type="date"
                class="px-3 py-2 rounded-md text-gray-900 text-sm">
       </div>
+      <div>
+        <label class="block text-xs text-gray-300 mb-1">BU (สาขา)</label>
+        <select id="buFilter" class="px-3 py-2 rounded-md text-gray-900 text-sm bg-white">
+          <option value="">ทุก BU</option>
+          <!-- จะเติมค่าโดยอัตโนมัติจากข้อมูล -->
+        </select>
+      </div>
       <button id="applyFilterBtn"
-              class="mt-2 md:mt-5 px-4 py-2 rounded-md bg-emerald-500 hover:bg-emerald-600 text-sm font-medium">
+              class="px-4 py-2 rounded-md bg-emerald-500 hover:bg-emerald-600 text-sm font-medium">
         ใช้ตัวกรอง
       </button>
     </div>
@@ -44,6 +51,15 @@
   <main class="p-4 md:p-6 lg:p-8">
     <!-- Alert -->
     <div id="alert" class="hidden mb-4 p-3 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm"></div>
+
+    <!-- Summary for management -->
+    <section class="mb-4">
+      <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-900">
+        <p id="summaryText">
+          กำลังโหลดข้อมูล...
+        </p>
+      </div>
+    </section>
 
     <!-- KPI Cards -->
     <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -80,7 +96,7 @@
         <p class="text-sm text-gray-500">ส่วนต่างราคาเฉลี่ย (diff)</p>
         <p id="avgDiff" class="text-2xl font-semibold mt-1">-</p>
         <p class="text-xs text-gray-400 mt-1">
-          diff = lowest_tran − po_tran (ค่าบวก = ซื้อถูกกว่าราคาต่ำสุดที่หาได้)
+          diff = ราคาต่ำสุดในวัน − ราคาตาม PO (ค่าบวก = ซื้อถูกกว่าราคาต่ำสุดที่หาได้)
         </p>
       </div>
     </section>
@@ -88,18 +104,20 @@
     <!-- Avg price comparison -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
       <div class="bg-white rounded-xl shadow p-4">
-        <p class="text-sm text-gray-500 mb-1">ราคาเฉลี่ย lowest_tran กับ po_tran</p>
-        <p class="text-xs text-gray-400 mb-4">
-          เทียบราคาเฉลี่ยต่อลิตรในช่วงวันที่ที่เลือก
+        <p class="text-sm text-gray-500 mb-1">
+          ราคาต่ำสุดในวัน เปรียบเทียบ ราคาตาม PO *รวมขนส่ง
         </p>
-        <canvas id="avgPriceChart" height="200"></canvas>
+        <p class="text-xs text-gray-400 mb-4">
+          เทียบราคาเฉลี่ยต่อลิตรจาก ราคาต่ำสุดในวัน กับ ราคาตาม PO ในช่วงวันที่ที่เลือก
+        </p>
+        <canvas id="avgPriceChart" height="150"></canvas>
         <div class="mt-4 text-sm">
           <p>
-            <span class="inline-block w-36 text-gray-500">avg lowest_tran:</span>
+            <span class="inline-block w-44 text-gray-500">ราคาต่ำสุดในวัน (เฉลี่ย):</span>
             <span id="avgLowestTran" class="font-semibold">-</span>
           </p>
           <p class="mt-1">
-            <span class="inline-block w-36 text-gray-500">avg po_tran:</span>
+            <span class="inline-block w-44 text-gray-500">ราคาตาม PO (เฉลี่ย):</span>
             <span id="avgPoTran" class="font-semibold">-</span>
           </p>
         </div>
@@ -108,9 +126,9 @@
       <div class="bg-white rounded-xl shadow p-4">
         <p class="text-sm text-gray-500 mb-1">สัดส่วน Win / Loss</p>
         <p class="text-xs text-gray-400 mb-4">
-          ใช้ค่า Check: 0 = Win, 1 = Loss (ซื้อแพงกว่า lowest_tran เกิน 0.05)
+          ใช้ค่า Check: 0 = Win, 1 = Loss (ซื้อแพงกว่าราคาต่ำสุดในวันเกิน 0.05)
         </p>
-        <canvas id="winLossChart" height="200"></canvas>
+        <canvas id="winLossChart" height="150"></canvas>
       </div>
     </section>
 
@@ -126,8 +144,8 @@
             <tr>
               <th class="px-2 py-2 text-left">วันที่</th>
               <th class="px-2 py-2 text-left">ประเภทน้ำมัน</th>
-              <th class="px-2 py-2 text-right">lowest_tran</th>
-              <th class="px-2 py-2 text-right">po_tran</th>
+              <th class="px-2 py-2 text-right">ราคาต่ำสุดในวัน</th>
+              <th class="px-2 py-2 text-right">ราคาตาม PO</th>
               <th class="px-2 py-2 text-right">diff</th>
               <th class="px-2 py-2 text-left">BU</th>
               <th class="px-2 py-2 text-left">Check</th>
@@ -143,11 +161,10 @@
     // ============= CONFIG =============
     const SHEET_ID = "1tQ-_FA-Bgo1_IyC3ECF3-Ph8CAAxXk8tDooOG3RlKVM";
     const GID = "1595661838"; // gid ของชีต effective
-    // ใช้ export?format=csv แทน gviz/tq เพื่อให้เสถียรกว่า
     const SHEET_CSV_URL =
       `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
-    let rawData = [];        // เก็บข้อมูลทั้งหมดจากชีต
+    let rawData = [];
     let avgPriceChart = null;
     let winLossChart  = null;
 
@@ -164,20 +181,19 @@
     }
 
     function parseThaiDate(dStr) {
-      // คาดว่าเป็นรูปแบบ dd/MM/yyyy จากชีต
+      // คาดว่าเป็นรูปแบบ dd/MM/yyyy
       if (!dStr) return null;
       const parts = dStr.split("/");
       if (parts.length !== 3) return null;
       const day = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10) - 1;
       let year = parseInt(parts[2], 10);
-      // รองรับทั้งปี พ.ศ. และ ค.ศ.
-      if (year > 2500) year -= 543;
+      if (year > 2500) year -= 543; // แปลง พ.ศ. เป็น ค.ศ.
       return new Date(year, month, day);
     }
 
     function toDateFromInput(value) {
-      // value จาก input type="date" => yyyy-MM-dd
+      // จาก input type="date" => yyyy-MM-dd
       if (!value) return null;
       const [y, m, d] = value.split("-").map(Number);
       return new Date(y, m - 1, d);
@@ -231,11 +247,14 @@
               check: row["Check"] === "" ? null : Number(row["Check"])
             };
           }).filter(r => r.dateObj instanceof Date && !isNaN(r.dateObj));
+
           if (!rawData.length) {
             showAlert("ไม่พบข้อมูลในชีต effective หรือไม่สามารถ map คอลัมน์ได้");
             return;
           }
+
           initDateRange();
+          initBUFilter();
           updateDashboard();
         },
         error: function(err, file, inputElem, reason) {
@@ -254,7 +273,7 @@
         if (r.dateObj > maxDate) maxDate = r.dateObj;
       });
 
-      // default = 30 วันล่าสุด (ถ้าน้อยกว่า ก็ใช้ minDate)
+      // default = 30 วันล่าสุด
       let defaultEnd = maxDate;
       let defaultStart = new Date(defaultEnd);
       defaultStart.setDate(defaultEnd.getDate() - 29);
@@ -267,17 +286,36 @@
       endInput.value = defaultEnd.toISOString().slice(0, 10);
     }
 
+    function initBUFilter() {
+      const select = document.getElementById("buFilter");
+      const buSet = new Set(
+        rawData
+          .map(r => r.bu)
+          .filter(b => b !== null && b !== undefined && String(b).trim() !== "")
+      );
+      // เคลียร์ option เดิม (ยกเว้น "ทุก BU")
+      select.innerHTML = '<option value="">ทุก BU</option>';
+      Array.from(buSet).sort().forEach(bu => {
+        const opt = document.createElement("option");
+        opt.value = bu;
+        opt.textContent = bu;
+        select.appendChild(opt);
+      });
+    }
+
     // ============= DASHBOARD LOGIC =============
     function updateDashboard() {
       if (!rawData.length) return;
 
       const startDate = toDateFromInput(document.getElementById("startDate").value);
       const endDate = toDateFromInput(document.getElementById("endDate").value);
+      const selectedBU = document.getElementById("buFilter").value;
 
       const filtered = rawData.filter(r => {
         if (!(r.dateObj instanceof Date)) return false;
         if (startDate && r.dateObj < startDate) return false;
         if (endDate && r.dateObj > endDate) return false;
+        if (selectedBU && r.bu !== selectedBU) return false;
         return true;
       });
 
@@ -302,7 +340,7 @@
       const winRate = total ? (win / total) : NaN;
       const lossRate = total ? (loss / total) : NaN;
 
-      // --- อัปเดตตัวเลข ---
+      // --- ตัวเลขหลัก ---
       document.getElementById("totalPurchases").textContent = total || 0;
       document.getElementById("winCount").textContent = win || 0;
       document.getElementById("lossCount").textContent = loss || 0;
@@ -311,6 +349,28 @@
       document.getElementById("avgLowestTran").textContent = formatNumber(avgLowestTran, 3);
       document.getElementById("avgPoTran").textContent = formatNumber(avgPoTran, 3);
       document.getElementById("avgDiff").textContent = formatNumber(avgDiff, 3);
+
+      // --- Summary สำหรับผู้บริหาร ---
+      const summaryEl = document.getElementById("summaryText");
+      const rangeText =
+        startDate && endDate
+          ? `ช่วงวันที่ ${formatDateDisplay(startDate)} - ${formatDateDisplay(endDate)}`
+          : "ช่วงวันที่ทั้งหมด";
+      const buText = selectedBU ? `BU: ${selectedBU}` : "ทุก BU";
+      let highlight = "";
+
+      if (!total) {
+        highlight = "ยังไม่มีข้อมูลในช่วงที่เลือก";
+      } else if (winRate >= 0.7) {
+        highlight = "ภาพรวมการจัดซื้อดี (Win ≥ 70%) องค์กรใช้ราคาตาม PO ใกล้เคียง/ต่ำกว่าราคาต่ำสุดในวันส่วนใหญ่";
+      } else if (winRate >= 0.5) {
+        highlight = "ภาพรวมการจัดซื้อปานกลาง (Win 50–70%) ยังมีพื้นที่ให้ปรับปรุงการต่อรองราคา";
+      } else {
+        highlight = "ควรตรวจสอบกระบวนการจัดซื้อ (Win < 50%) มีโอกาสเสียต้นทุนจากการซื้อแพงบ่อยครั้ง";
+      }
+
+      summaryEl.textContent =
+        `${rangeText} | ${buText} | Win ${formatPercent(winRate)} , Loss ${formatPercent(lossRate)} → ${highlight}`;
 
       // --- Chart: Avg Price ---
       const ctx1 = document.getElementById("avgPriceChart").getContext("2d");
@@ -321,9 +381,9 @@
       avgPriceChart = new Chart(ctx1, {
         type: "bar",
         data: {
-          labels: ["avg lowest_tran", "avg po_tran"],
+          labels: ["ราคาต่ำสุดในวัน (เฉลี่ย)", "ราคาตาม PO (เฉลี่ย)"],
           datasets: [{
-            label: "ราคาเฉลี่ยต่อลิตร",
+            label: "ราคาเฉลี่ยต่อลิตร (*รวมขนส่ง)",
             data: [avgLowestVal, avgPoVal]
           }]
         },
@@ -367,7 +427,6 @@
       document.getElementById("tableCount").textContent =
         total ? `แสดงตัวอย่าง ${Math.min(total, 20)} จาก ${total} รายการ` : "ไม่พบข้อมูลในช่วงวันที่นี้";
 
-      // เรียงตามวันที่ใหม่สุดก่อน
       const sorted = [...filtered].sort((a, b) => b.dateObj - a.dateObj).slice(0, 20);
 
       sorted.forEach(r => {
@@ -397,6 +456,7 @@
 
     // ============= INIT =============
     document.getElementById("applyFilterBtn").addEventListener("click", updateDashboard);
+    document.getElementById("buFilter").addEventListener("change", updateDashboard);
 
     window.addEventListener("load", loadData);
   </script>
