@@ -142,9 +142,10 @@
   <script>
     // ============= CONFIG =============
     const SHEET_ID = "1tQ-_FA-Bgo1_IyC3ECF3-Ph8CAAxXk8tDooOG3RlKVM";
-    const SHEET_NAME = "effective";
+    const GID = "1595661838"; // gid ของชีต effective
+    // ใช้ export?format=csv แทน gviz/tq เพื่อให้เสถียรกว่า
     const SHEET_CSV_URL =
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
     let rawData = [];        // เก็บข้อมูลทั้งหมดจากชีต
     let avgPriceChart = null;
@@ -209,8 +210,8 @@
         skipEmptyLines: true,
         complete: function(results) {
           if (results.errors && results.errors.length > 0) {
-            console.error(results.errors);
-            showAlert("ไม่สามารถอ่านข้อมูลจาก Google Sheet ได้ กรุณาตรวจสอบการแชร์ไฟล์ หรือเปิดคอนโซลดูรายละเอียด");
+            console.error("PapaParse errors:", results.errors);
+            showAlert("ไม่สามารถอ่านข้อมูลจาก Google Sheet ได้ (CSV Error) กรุณาตรวจสอบ URL / การแชร์ไฟล์ และดู console เพิ่มเติม");
           }
           rawData = results.data.map(row => {
             const dateObj = parseThaiDate(row["date"]);
@@ -231,11 +232,15 @@
             };
           }).filter(r => r.dateObj instanceof Date && !isNaN(r.dateObj));
           if (!rawData.length) {
-            showAlert("ไม่พบข้อมูลในชีต effective");
+            showAlert("ไม่พบข้อมูลในชีต effective หรือไม่สามารถ map คอลัมน์ได้");
             return;
           }
           initDateRange();
           updateDashboard();
+        },
+        error: function(err, file, inputElem, reason) {
+          console.error("PapaParse network error:", err, reason);
+          showAlert("ไม่สามารถดาวน์โหลด CSV จาก Google Sheet ได้ กรุณาตรวจสอบการแชร์ไฟล์ / URL และลองรีเฟรชหน้า");
         }
       });
     }
@@ -250,8 +255,8 @@
       });
 
       // default = 30 วันล่าสุด (ถ้าน้อยกว่า ก็ใช้ minDate)
-      const defaultEnd = maxDate;
-      const defaultStart = new Date(defaultEnd);
+      let defaultEnd = maxDate;
+      let defaultStart = new Date(defaultEnd);
       defaultStart.setDate(defaultEnd.getDate() - 29);
       if (defaultStart < minDate) defaultStart = minDate;
 
