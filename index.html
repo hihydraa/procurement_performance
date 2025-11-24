@@ -38,7 +38,6 @@
         <label class="block text-xs text-gray-300 mb-1">BU (สาขา)</label>
         <select id="buFilter" class="px-3 py-2 rounded-md text-gray-900 text-sm bg-white">
           <option value="">ทุก BU</option>
-          <!-- จะเติมค่าโดยอัตโนมัติจากข้อมูล -->
         </select>
       </div>
       <button id="applyFilterBtn"
@@ -63,77 +62,103 @@
 
     <!-- KPI Cards -->
     <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <div class="bg-white rounded-xl shadow p-4">
-        <p class="text-sm text-gray-500">จำนวนครั้งที่จัดซื้อ</p>
-        <p id="totalPurchases" class="text-2xl font-semibold mt-1">-</p>
-      </div>
-      <div class="bg-white rounded-xl shadow p-4">
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-gray-500">Win / Loss (ครั้ง)</p>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">จาก Check</span>
+      <!-- Total purchases -->
+      <div class="bg-white rounded-xl shadow-md p-5 flex flex-col gap-1 border border-gray-100 hover:shadow-lg transition">
+        <div class="flex justify-between items-center">
+          <p class="text-sm text-gray-600 font-medium">จำนวนครั้งที่จัดซื้อ</p>
+          <span class="text-gray-300 text-lg">📦</span>
         </div>
-        <p class="mt-2 text-sm">
-          <span class="inline-block w-16 text-gray-500">Win:</span>
-          <span id="winCount" class="font-semibold text-emerald-600">-</span>
-        </p>
-        <p class="mt-1 text-sm">
-          <span class="inline-block w-16 text-gray-500">Loss:</span>
-          <span id="lossCount" class="font-semibold text-rose-600">-</span>
-        </p>
+        <p id="totalPurchases" class="text-3xl font-bold text-gray-900 mt-1">-</p>
       </div>
-      <div class="bg-white rounded-xl shadow p-4">
-        <p class="text-sm text-gray-500">%Win / %Loss</p>
-        <p class="mt-2 text-sm">
-          <span class="inline-block w-16 text-gray-500">%Win:</span>
-          <span id="winRate" class="font-semibold text-emerald-600">-</span>
-        </p>
-        <p class="mt-1 text-sm">
-          <span class="inline-block w-16 text-gray-500">%Loss:</span>
-          <span id="lossRate" class="font-semibold text-rose-600">-</span>
-        </p>
+
+      <!-- Win / Loss count -->
+      <div class="bg-white rounded-xl shadow-md p-5 flex flex-col gap-1 border border-gray-100 hover:shadow-lg transition">
+        <div class="flex justify-between items-center">
+          <p class="text-sm text-gray-600 font-medium">Win / Loss (ครั้ง)</p>
+          <span class="text-gray-300 text-lg">⚖️</span>
+        </div>
+        <div class="text-sm mt-2 space-y-1">
+          <div class="flex justify-between">
+            <span class="text-gray-500">Win:</span>
+            <span id="winCount" class="font-semibold text-emerald-600 text-lg">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Loss:</span>
+            <span id="lossCount" class="font-semibold text-rose-600 text-lg">-</span>
+          </div>
+        </div>
       </div>
-      <div class="bg-white rounded-xl shadow p-4">
-        <p class="text-sm text-gray-500">ส่วนต่างราคาเฉลี่ย (diff)</p>
-        <p id="avgDiff" class="text-2xl font-semibold mt-1">-</p>
-        <p class="text-xs text-gray-400 mt-1">
+
+      <!-- Win / Loss percent -->
+      <div class="bg-white rounded-xl shadow-md p-5 flex flex-col gap-1 border border-gray-100 hover:shadow-lg transition">
+        <div class="flex justify-between items-center">
+          <p class="text-sm text-gray-600 font-medium">%Win / %Loss</p>
+          <span class="text-gray-300 text-lg">📈</span>
+        </div>
+        <div class="text-sm mt-2 space-y-1">
+          <div class="flex justify-between">
+            <span class="text-gray-500">%Win:</span>
+            <span id="winRate" class="font-semibold text-emerald-600 text-lg">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">%Loss:</span>
+            <span id="lossRate" class="font-semibold text-rose-600 text-lg">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Avg diff -->
+      <div class="bg-white rounded-xl shadow-md p-5 flex flex-col gap-1 border border-gray-100 hover:shadow-lg transition">
+        <div class="flex justify-between items-center">
+          <p class="text-sm text-gray-600 font-medium">ส่วนต่างราคาเฉลี่ย (diff)</p>
+          <span class="text-gray-300 text-lg">💰</span>
+        </div>
+        <p id="avgDiff" class="text-3xl font-bold mt-1 text-gray-800">-</p>
+        <p class="text-xs text-gray-400">
           diff = ราคาต่ำสุดในวัน − ราคาตาม PO (ค่าบวก = ซื้อถูกกว่าราคาต่ำสุดที่หาได้)
         </p>
       </div>
     </section>
 
-    <!-- Avg price comparison -->
+    <!-- Charts -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      <div class="bg-white rounded-xl shadow p-4">
-        <p class="text-sm text-gray-500 mb-1">
+      <!-- Avg price comparison -->
+      <div class="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+        <p class="text-sm text-gray-600 mb-1">
           ราคาต่ำสุดในวัน เปรียบเทียบ ราคาตาม PO *รวมขนส่ง
         </p>
-        <p class="text-xs text-gray-400 mb-4">
+        <p class="text-xs text-gray-400 mb-3">
           เทียบราคาเฉลี่ยต่อลิตรจาก ราคาต่ำสุดในวัน กับ ราคาตาม PO ในช่วงวันที่ที่เลือก
         </p>
-        <canvas id="avgPriceChart" height="150"></canvas>
-        <div class="mt-4 text-sm">
+        <div class="h-40">
+          <canvas id="avgPriceChart"></canvas>
+        </div>
+        <div class="mt-3 text-sm">
           <p>
-            <span class="inline-block w-44 text-gray-500">ราคาต่ำสุดในวัน (เฉลี่ย):</span>
+            <span class="inline-block w-48 text-gray-500">ราคาต่ำสุดในวัน (เฉลี่ย):</span>
             <span id="avgLowestTran" class="font-semibold">-</span>
           </p>
           <p class="mt-1">
-            <span class="inline-block w-44 text-gray-500">ราคาตาม PO (เฉลี่ย):</span>
+            <span class="inline-block w-48 text-gray-500">ราคาตาม PO (เฉลี่ย):</span>
             <span id="avgPoTran" class="font-semibold">-</span>
           </p>
         </div>
       </div>
 
-      <div class="bg-white rounded-xl shadow p-4">
-        <p class="text-sm text-gray-500 mb-1">สัดส่วน Win / Loss</p>
-        <p class="text-xs text-gray-400 mb-4">
+      <!-- Win / Loss ratio -->
+      <div class="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+        <p class="text-sm text-gray-600 mb-1">สัดส่วน Win / Loss</p>
+        <p class="text-xs text-gray-400 mb-3">
           ใช้ค่า Check: 0 = Win, 1 = Loss (ซื้อแพงกว่าราคาต่ำสุดในวันเกิน 0.05)
         </p>
-        <canvas id="winLossChart" height="150"></canvas>
+        <div class="h-40">
+          <canvas id="winLossChart"></canvas>
+        </div>
       </div>
     </section>
 
     <!-- Table recent rows -->
-    <section class="bg-white rounded-xl shadow p-4">
+    <section class="bg-white rounded-xl shadow-md p-4 border border-gray-100">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-base font-semibold text-gray-800">รายการจัดซื้อ (ตัวอย่างล่าสุดจากช่วงวันที่ที่เลือก)</h2>
         <span id="tableCount" class="text-xs text-gray-500"></span>
@@ -293,7 +318,6 @@
           .map(r => r.bu)
           .filter(b => b !== null && b !== undefined && String(b).trim() !== "")
       );
-      // เคลียร์ option เดิม (ยกเว้น "ทุก BU")
       select.innerHTML = '<option value="">ทุก BU</option>';
       Array.from(buSet).sort().forEach(bu => {
         const opt = document.createElement("option");
@@ -389,6 +413,7 @@
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           plugins: {
             legend: { display: false }
           },
@@ -413,6 +438,7 @@
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           plugins: {
             legend: {
               position: "bottom"
