@@ -120,7 +120,7 @@
       </div>
     </section>
 
-    <!-- Charts -->
+    <!-- Charts 1: Avg price + Win/Loss donut -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
       <!-- Avg price comparison -->
       <div class="bg-white rounded-xl shadow-md p-4 border border-gray-100">
@@ -154,6 +154,17 @@
         <div class="h-40">
           <canvas id="winLossChart"></canvas>
         </div>
+      </div>
+    </section>
+
+    <!-- Chart 2: %Win by BU -->
+    <section class="bg-white rounded-xl shadow-md p-4 border border-gray-100 mb-6">
+      <p class="text-sm text-gray-600 mb-1">เปรียบเทียบ %Win แยกตาม BU</p>
+      <p class="text-xs text-gray-400 mb-3">
+        ใช้ช่วงวันที่ตามตัวกรองด้านบน (ไม่สนใจตัวกรอง BU) เพื่อดูประสิทธิภาพการจัดซื้อของแต่ละสาขาเทียบกัน
+      </p>
+      <div class="h-56">
+        <canvas id="winByBuChart"></canvas>
       </div>
     </section>
 
@@ -192,6 +203,7 @@
     let rawData = [];
     let avgPriceChart = null;
     let winLossChart  = null;
+    let winByBuChart  = null;
 
     // ============= UTIL =============
     function showAlert(msg) {
@@ -218,7 +230,6 @@
     }
 
     function toDateFromInput(value) {
-      // จาก input type="date" => yyyy-MM-dd
       if (!value) return null;
       const [y, m, d] = value.split("-").map(Number);
       return new Date(y, m - 1, d);
@@ -298,7 +309,6 @@
         if (r.dateObj > maxDate) maxDate = r.dateObj;
       });
 
-      // default = 30 วันล่าสุด
       let defaultEnd = maxDate;
       let defaultStart = new Date(defaultEnd);
       defaultStart.setDate(defaultEnd.getDate() - 29);
@@ -335,6 +345,7 @@
       const endDate = toDateFromInput(document.getElementById("endDate").value);
       const selectedBU = document.getElementById("buFilter").value;
 
+      // กรองสำหรับการแสดง KPI / ตาราง (ตามช่วงวันที่ + BU)
       const filtered = rawData.filter(r => {
         if (!(r.dateObj instanceof Date)) return false;
         if (startDate && r.dateObj < startDate) return false;
@@ -425,7 +436,7 @@
         }
       });
 
-      // --- Chart: Win/Loss ---
+      // --- Chart: Win/Loss donut ---
       const ctx2 = document.getElementById("winLossChart").getContext("2d");
       if (winLossChart) winLossChart.destroy();
       winLossChart = new Chart(ctx2, {
@@ -442,6 +453,64 @@
           plugins: {
             legend: {
               position: "bottom"
+            }
+          }
+        }
+      });
+
+      // --- Chart: %Win by BU (ตามช่วงวันที่ แต่ไม่กรอง BU) ---
+      const dateFiltered = rawData.filter(r => {
+        if (!(r.dateObj instanceof Date)) return false;
+        if (startDate && r.dateObj < startDate) return false;
+        if (endDate && r.dateObj > endDate) return false;
+        return true;
+      });
+
+      const buStats = {};
+      dateFiltered.forEach(r => {
+        const bu = r.bu || "ไม่ระบุ";
+        if (!buStats[bu]) buStats[bu] = { win: 0, total: 0 };
+        if (r.check === 0) {
+          buStats[bu].win++;
+          buStats[bu].total++;
+        } else if (r.check === 1) {
+          buStats[bu].total++;
+        }
+      });
+
+      const buLabels = [];
+      const winPercents = [];
+      Object.keys(buStats).sort().forEach(bu => {
+        const stat = buStats[bu];
+        if (!stat.total) return;
+        buLabels.push(bu);
+        winPercents.push((stat.win / stat.total) * 100);
+      });
+
+      const ctx3 = document.getElementById("winByBuChart").getContext("2d");
+      if (winByBuChart) winByBuChart.destroy();
+      winByBuChart = new Chart(ctx3, {
+        type: "bar",
+        data: {
+          labels: buLabels,
+          datasets: [{
+            label: "%Win แยกตาม BU",
+            data: winPercents
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                callback: (val) => val + "%"
+              }
             }
           }
         }
@@ -483,7 +552,6 @@
     // ============= INIT =============
     document.getElementById("applyFilterBtn").addEventListener("click", updateDashboard);
     document.getElementById("buFilter").addEventListener("change", updateDashboard);
-
     window.addEventListener("load", loadData);
   </script>
 </body>
