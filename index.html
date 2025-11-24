@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard ประสิทธิภาพการจัดซื้อน้ำมัน</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- PapaParse สำหรับอ่าน CSV จาก Google Sheets -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <!-- Top Bar -->
+  <header class="bg-gray-900 text-white px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <div>
+      <h1 class="text-xl md:text-2xl font-semibold">📊 Dashboard ประสิทธิภาพการจัดซื้อน้ำมัน</h1>
+      <p class="text-gray-300 text-sm md:text-base">
+        ดึงข้อมูลจาก Google Sheet (ชีต <code>effective</code>) และคำนวณ Win / Loss แบบอัตโนมัติ
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-3 items-center">
+      <div>
+        <label class="block text-xs text-gray-300 mb-1">วันที่เริ่มต้น</label>
+        <input id="startDate" type="date"
+               class="px-3 py-2 rounded-md text-gray-900 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-300 mb-1">วันที่สิ้นสุด</label>
+        <input id="endDate" type="date"
+               class="px-3 py-2 rounded-md text-gray-900 text-sm">
+      </div>
+      <button id="applyFilterBtn"
+              class="mt-2 md:mt-5 px-4 py-2 rounded-md bg-emerald-500 hover:bg-emerald-600 text-sm font-medium">
+        ใช้ตัวกรอง
+      </button>
+    </div>
+  </header>
+
+  <main class="p-4 md:p-6 lg:p-8">
+    <!-- Alert -->
+    <div id="alert" class="hidden mb-4 p-3 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm"></div>
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-xl shadow p-4">
+        <p class="text-sm text-gray-500">จำนวนครั้งที่จัดซื้อ</p>
+        <p id="totalPurchases" class="text-2xl font-semibold mt-1">-</p>
+      </div>
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center justify-between">
+          <p class="text-sm text-gray-500">Win / Loss (ครั้ง)</p>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">จาก Check</span>
+        </div>
+        <p class="mt-2 text-sm">
+          <span class="inline-block w-16 text-gray-500">Win:</span>
+          <span id="winCount" class="font-semibold text-emerald-600">-</span>
+        </p>
+        <p class="mt-1 text-sm">
+          <span class="inline-block w-16 text-gray-500">Loss:</span>
+          <span id="lossCount" class="font-semibold text-rose-600">-</span>
+        </p>
+      </div>
+      <div class="bg-white rounded-xl shadow p-4">
+        <p class="text-sm text-gray-500">%Win / %Loss</p>
+        <p class="mt-2 text-sm">
+          <span class="inline-block w-16 text-gray-500">%Win:</span>
+          <span id="winRate" class="font-semibold text-emerald-600">-</span>
+        </p>
+        <p class="mt-1 text-sm">
+          <span class="inline-block w-16 text-gray-500">%Loss:</span>
+          <span id="lossRate" class="font-semibold text-rose-600">-</span>
+        </p>
+      </div>
+      <div class="bg-white rounded-xl shadow p-4">
+        <p class="text-sm text-gray-500">ส่วนต่างราคาเฉลี่ย (diff)</p>
+        <p id="avgDiff" class="text-2xl font-semibold mt-1">-</p>
+        <p class="text-xs text-gray-400 mt-1">
+          diff = lowest_tran − po_tran (ค่าบวก = ซื้อถูกกว่าราคาต่ำสุดที่หาได้)
+        </p>
+      </div>
+    </section>
+
+    <!-- Avg price comparison -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="bg-white rounded-xl shadow p-4">
+        <p class="text-sm text-gray-500 mb-1">ราคาเฉลี่ย lowest_tran กับ po_tran</p>
+        <p class="text-xs text-gray-400 mb-4">
+          เทียบราคาเฉลี่ยต่อลิตรในช่วงวันที่ที่เลือก
+        </p>
+        <canvas id="avgPriceChart" height="200"></canvas>
+        <div class="mt-4 text-sm">
+          <p>
+            <span class="inline-block w-36 text-gray-500">avg lowest_tran:</span>
+            <span id="avgLowestTran" class="font-semibold">-</span>
+          </p>
+          <p class="mt-1">
+            <span class="inline-block w-36 text-gray-500">avg po_tran:</span>
+            <span id="avgPoTran" class="font-semibold">-</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4">
+        <p class="text-sm text-gray-500 mb-1">สัดส่วน Win / Loss</p>
+        <p class="text-xs text-gray-400 mb-4">
+          ใช้ค่า Check: 0 = Win, 1 = Loss (ซื้อแพงกว่า lowest_tran เกิน 0.05)
+        </p>
+        <canvas id="winLossChart" height="200"></canvas>
+      </div>
+    </section>
+
+    <!-- Table recent rows -->
+    <section class="bg-white rounded-xl shadow p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-base font-semibold text-gray-800">รายการจัดซื้อ (ตัวอย่างล่าสุดจากช่วงวันที่ที่เลือก)</h2>
+        <span id="tableCount" class="text-xs text-gray-500"></span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs md:text-sm">
+          <thead class="bg-gray-50 text-gray-600">
+            <tr>
+              <th class="px-2 py-2 text-left">วันที่</th>
+              <th class="px-2 py-2 text-left">ประเภทน้ำมัน</th>
+              <th class="px-2 py-2 text-right">lowest_tran</th>
+              <th class="px-2 py-2 text-right">po_tran</th>
+              <th class="px-2 py-2 text-right">diff</th>
+              <th class="px-2 py-2 text-left">BU</th>
+              <th class="px-2 py-2 text-left">Check</th>
+            </tr>
+          </thead>
+          <tbody id="dataTableBody" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ============= CONFIG =============
+    const SHEET_ID = "1tQ-_FA-Bgo1_IyC3ECF3-Ph8CAAxXk8tDooOG3RlKVM";
+    const SHEET_NAME = "effective";
+    const SHEET_CSV_URL =
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+
+    let rawData = [];        // เก็บข้อมูลทั้งหมดจากชีต
+    let avgPriceChart = null;
+    let winLossChart  = null;
+
+    // ============= UTIL =============
+    function showAlert(msg) {
+      const el = document.getElementById("alert");
+      el.textContent = msg;
+      el.classList.remove("hidden");
+    }
+
+    function hideAlert() {
+      const el = document.getElementById("alert");
+      el.classList.add("hidden");
+    }
+
+    function parseThaiDate(dStr) {
+      // คาดว่าเป็นรูปแบบ dd/MM/yyyy จากชีต
+      if (!dStr) return null;
+      const parts = dStr.split("/");
+      if (parts.length !== 3) return null;
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      let year = parseInt(parts[2], 10);
+      // รองรับทั้งปี พ.ศ. และ ค.ศ.
+      if (year > 2500) year -= 543;
+      return new Date(year, month, day);
+    }
+
+    function toDateFromInput(value) {
+      // value จาก input type="date" => yyyy-MM-dd
+      if (!value) return null;
+      const [y, m, d] = value.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function formatNumber(num, digits = 2) {
+      if (num === null || num === undefined || isNaN(num)) return "-";
+      return num.toFixed(digits);
+    }
+
+    function formatPercent(num) {
+      if (num === null || num === undefined || isNaN(num)) return "-";
+      return (num * 100).toFixed(1) + "%";
+    }
+
+    function formatDateDisplay(dateObj) {
+      if (!(dateObj instanceof Date)) return "";
+      const d = String(dateObj.getDate()).padStart(2, "0");
+      const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const y = dateObj.getFullYear();
+      return `${d}/${m}/${y}`;
+    }
+
+    // ============= DATA LOADING =============
+    function loadData() {
+      hideAlert();
+      Papa.parse(SHEET_CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          if (results.errors && results.errors.length > 0) {
+            console.error(results.errors);
+            showAlert("ไม่สามารถอ่านข้อมูลจาก Google Sheet ได้ กรุณาตรวจสอบการแชร์ไฟล์ หรือเปิดคอนโซลดูรายละเอียด");
+          }
+          rawData = results.data.map(row => {
+            const dateObj = parseThaiDate(row["date"]);
+            return {
+              dateStr: row["date"],
+              dateObj: dateObj,
+              oil_type: row["oil_type"],
+              lowest: parseFloat(row["lowest"]),
+              lowest_tran: parseFloat(row["lowest_tran"]),
+              po: parseFloat(row["po"]),
+              po_tran: parseFloat(row["po_tran"]),
+              diff: parseFloat(row["diff"]),
+              detail_lowest: row["detail_lowest"],
+              detail_po: row["detail_po"],
+              bu: row["bu"],
+              note: row["Note"],
+              check: row["Check"] === "" ? null : Number(row["Check"])
+            };
+          }).filter(r => r.dateObj instanceof Date && !isNaN(r.dateObj));
+          if (!rawData.length) {
+            showAlert("ไม่พบข้อมูลในชีต effective");
+            return;
+          }
+          initDateRange();
+          updateDashboard();
+        }
+      });
+    }
+
+    function initDateRange() {
+      if (!rawData.length) return;
+      let minDate = rawData[0].dateObj;
+      let maxDate = rawData[0].dateObj;
+      rawData.forEach(r => {
+        if (r.dateObj < minDate) minDate = r.dateObj;
+        if (r.dateObj > maxDate) maxDate = r.dateObj;
+      });
+
+      // default = 30 วันล่าสุด (ถ้าน้อยกว่า ก็ใช้ minDate)
+      const defaultEnd = maxDate;
+      const defaultStart = new Date(defaultEnd);
+      defaultStart.setDate(defaultEnd.getDate() - 29);
+      if (defaultStart < minDate) defaultStart = minDate;
+
+      const startInput = document.getElementById("startDate");
+      const endInput = document.getElementById("endDate");
+
+      startInput.value = defaultStart.toISOString().slice(0, 10);
+      endInput.value = defaultEnd.toISOString().slice(0, 10);
+    }
+
+    // ============= DASHBOARD LOGIC =============
+    function updateDashboard() {
+      if (!rawData.length) return;
+
+      const startDate = toDateFromInput(document.getElementById("startDate").value);
+      const endDate = toDateFromInput(document.getElementById("endDate").value);
+
+      const filtered = rawData.filter(r => {
+        if (!(r.dateObj instanceof Date)) return false;
+        if (startDate && r.dateObj < startDate) return false;
+        if (endDate && r.dateObj > endDate) return false;
+        return true;
+      });
+
+      const total = filtered.length;
+      let win = 0;
+      let loss = 0;
+      let sumLowestTran = 0;
+      let sumPoTran = 0;
+      let sumDiff = 0;
+
+      filtered.forEach(r => {
+        if (r.check === 1) loss++;
+        else if (r.check === 0) win++;
+        if (!isNaN(r.lowest_tran)) sumLowestTran += r.lowest_tran;
+        if (!isNaN(r.po_tran)) sumPoTran += r.po_tran;
+        if (!isNaN(r.diff)) sumDiff += r.diff;
+      });
+
+      const avgLowestTran = total ? (sumLowestTran / total) : NaN;
+      const avgPoTran = total ? (sumPoTran / total) : NaN;
+      const avgDiff = total ? (sumDiff / total) : NaN;
+      const winRate = total ? (win / total) : NaN;
+      const lossRate = total ? (loss / total) : NaN;
+
+      // --- อัปเดตตัวเลข ---
+      document.getElementById("totalPurchases").textContent = total || 0;
+      document.getElementById("winCount").textContent = win || 0;
+      document.getElementById("lossCount").textContent = loss || 0;
+      document.getElementById("winRate").textContent = formatPercent(winRate);
+      document.getElementById("lossRate").textContent = formatPercent(lossRate);
+      document.getElementById("avgLowestTran").textContent = formatNumber(avgLowestTran, 3);
+      document.getElementById("avgPoTran").textContent = formatNumber(avgPoTran, 3);
+      document.getElementById("avgDiff").textContent = formatNumber(avgDiff, 3);
+
+      // --- Chart: Avg Price ---
+      const ctx1 = document.getElementById("avgPriceChart").getContext("2d");
+      const avgLowestVal = isNaN(avgLowestTran) ? 0 : avgLowestTran;
+      const avgPoVal = isNaN(avgPoTran) ? 0 : avgPoTran;
+
+      if (avgPriceChart) avgPriceChart.destroy();
+      avgPriceChart = new Chart(ctx1, {
+        type: "bar",
+        data: {
+          labels: ["avg lowest_tran", "avg po_tran"],
+          datasets: [{
+            label: "ราคาเฉลี่ยต่อลิตร",
+            data: [avgLowestVal, avgPoVal]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      // --- Chart: Win/Loss ---
+      const ctx2 = document.getElementById("winLossChart").getContext("2d");
+      if (winLossChart) winLossChart.destroy();
+      winLossChart = new Chart(ctx2, {
+        type: "doughnut",
+        data: {
+          labels: ["Win (Check=0)", "Loss (Check=1)"],
+          datasets: [{
+            data: [win, loss]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: "bottom"
+            }
+          }
+        }
+      });
+
+      // --- Table (ตัวอย่างล่าสุด) ---
+      const tbody = document.getElementById("dataTableBody");
+      tbody.innerHTML = "";
+      document.getElementById("tableCount").textContent =
+        total ? `แสดงตัวอย่าง ${Math.min(total, 20)} จาก ${total} รายการ` : "ไม่พบข้อมูลในช่วงวันที่นี้";
+
+      // เรียงตามวันที่ใหม่สุดก่อน
+      const sorted = [...filtered].sort((a, b) => b.dateObj - a.dateObj).slice(0, 20);
+
+      sorted.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-gray-50";
+
+        const winLossBadge = (r.check === 1)
+          ? '<span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[11px]">Loss</span>'
+          : (r.check === 0
+              ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px]">Win</span>'
+              : '<span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px]">-</span>');
+
+        tr.innerHTML = `
+          <td class="px-2 py-1 whitespace-nowrap text-gray-700">${formatDateDisplay(r.dateObj)}</td>
+          <td class="px-2 py-1 whitespace-nowrap text-gray-700">${r.oil_type || ""}</td>
+          <td class="px-2 py-1 text-right tabular-nums text-gray-700">${formatNumber(r.lowest_tran, 3)}</td>
+          <td class="px-2 py-1 text-right tabular-nums text-gray-700">${formatNumber(r.po_tran, 3)}</td>
+          <td class="px-2 py-1 text-right tabular-nums ${r.diff > 0 ? "text-emerald-600" : (r.diff < 0 ? "text-rose-600" : "text-gray-700")}">
+            ${formatNumber(r.diff, 3)}
+          </td>
+          <td class="px-2 py-1 whitespace-nowrap text-gray-700">${r.bu || ""}</td>
+          <td class="px-2 py-1 whitespace-nowrap">${winLossBadge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ============= INIT =============
+    document.getElementById("applyFilterBtn").addEventListener("click", updateDashboard);
+
+    window.addEventListener("load", loadData);
+  </script>
+</body>
+</html>
