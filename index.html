@@ -149,7 +149,7 @@
       <div class="bg-white rounded-xl shadow-md p-4 border border-gray-100">
         <p class="text-sm text-gray-600 mb-1">สัดส่วน Win / Loss</p>
         <p class="text-xs text-gray-400 mb-3">
-          ใช้ค่า Check: 0 = Win, 1 = Loss (ซื้อแพงกว่าราคาต่ำสุดในวันเกิน 0.05)
+          ใช้ค่า Check: 1 = Win, 0 = Loss
         </p>
         <div class="h-40">
           <canvas id="winLossChart"></canvas>
@@ -362,8 +362,10 @@
       let sumDiff = 0;
 
       filtered.forEach(r => {
-        if (r.check === 1) loss++;
-        else if (r.check === 0) win++;
+        // แก้เป็น Check = 1 คือ Win, 0 คือ Loss
+        if (r.check === 1) win++;
+        else if (r.check === 0) loss++;
+
         if (!isNaN(r.lowest_tran)) sumLowestTran += r.lowest_tran;
         if (!isNaN(r.po_tran)) sumPoTran += r.po_tran;
         if (!isNaN(r.diff)) sumDiff += r.diff;
@@ -442,7 +444,7 @@
       winLossChart = new Chart(ctx2, {
         type: "doughnut",
         data: {
-          labels: ["Win (Check=0)", "Loss (Check=1)"],
+          labels: ["Win (Check=1)", "Loss (Check=0)"],
           datasets: [{
             data: [win, loss]
           }]
@@ -470,10 +472,12 @@
       dateFiltered.forEach(r => {
         const bu = r.bu || "ไม่ระบุ";
         if (!buStats[bu]) buStats[bu] = { win: 0, total: 0 };
-        if (r.check === 0) {
+
+        // 1 = Win, 0 = Loss
+        if (r.check === 1) {
           buStats[bu].win++;
           buStats[bu].total++;
-        } else if (r.check === 1) {
+        } else if (r.check === 0) {
           buStats[bu].total++;
         }
       });
@@ -529,9 +533,9 @@
         tr.className = "hover:bg-gray-50";
 
         const winLossBadge = (r.check === 1)
-          ? '<span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[11px]">Loss</span>'
+          ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px]">Win</span>'
           : (r.check === 0
-              ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px]">Win</span>'
+              ? '<span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[11px]">Loss</span>'
               : '<span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px]">-</span>');
 
         tr.innerHTML = `
